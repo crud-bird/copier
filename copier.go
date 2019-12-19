@@ -41,8 +41,12 @@ func Copy(toValue, fromValue interface{}, opt ...CopyOpt) (err error) {
 	)
 
 	if len(opt) > 0 {
-		tag = opt[0].Tag
-		setFunc = opt[0].SetFunc
+		if opt[0].Tag != "" {
+			tag = opt[0].Tag
+		}
+		if opt[0].SetFunc != nil {
+			setFunc = opt[0].SetFunc
+		}
 	}
 
 	if !to.CanAddr() {
