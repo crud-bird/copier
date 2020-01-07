@@ -160,14 +160,6 @@ func Copy(toValue, fromValue interface{}, opt ...CopyOpt) (err error) {
 			}
 		}
 
-		if isSlice {
-			if dest.Addr().Type().AssignableTo(to.Type().Elem()) {
-				to.Set(reflect.Append(to, dest.Addr()))
-			} else if dest.Type().AssignableTo(to.Type().Elem()) {
-				to.Set(reflect.Append(to, dest))
-			}
-		}
-
 		//user-defined rule
 		for _, field := range fromTaggedFields {
 			if fromField := source.FieldByName(field.Name); fromField.IsValid() {
@@ -181,6 +173,14 @@ func Copy(toValue, fromValue interface{}, opt ...CopyOpt) (err error) {
 				if fromField := source.FieldByName(field.Tag.Get(tag)); fromField.IsValid() {
 					setFunc(toField, fromField)
 				}
+			}
+		}
+
+		if isSlice {
+			if dest.Addr().Type().AssignableTo(to.Type().Elem()) {
+				to.Set(reflect.Append(to, dest.Addr()))
+			} else if dest.Type().AssignableTo(to.Type().Elem()) {
+				to.Set(reflect.Append(to, dest))
 			}
 		}
 	}
