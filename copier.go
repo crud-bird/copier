@@ -102,7 +102,6 @@ func Copy(toValue, fromValue interface{}, opt ...CopyOpt) (err error) {
 			//tagged field, deal with user-defined function
 			if field.Tag.Get(tag) != "" {
 				fromTaggedFields = append(fromTaggedFields, field)
-				continue
 			}
 
 			name := field.Name
@@ -138,7 +137,6 @@ func Copy(toValue, fromValue interface{}, opt ...CopyOpt) (err error) {
 			//tagged field, deal with user-defined function
 			if field.Tag.Get(tag) != "" {
 				toTaggedFields = append(toTaggedFields, field)
-				continue
 			}
 
 			name := field.Name
