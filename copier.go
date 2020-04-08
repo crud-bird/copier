@@ -8,44 +8,37 @@ import (
 	"time"
 )
 
-//CopyOpt 自定义拷贝规则和tag
+//CopyRule 自定义拷贝规则；返回true时表示当前字段已完成拷贝，转入处理下一个字段；否则会接着按照默认拷贝规则拷贝当前字段；
+//toVal、fromVal：是当前正在拷贝的字段的Value
+//field：当前字段的名字
+//默认拷贝规则支持类型转换,包括：
+//1.字符串和数字类型相互转换
+//2.time.Time和字符串或者数字相互转换
+type CopyRule func(toVal, fromVal reflect.Value, field string) bool
+
+//CopyOpt 可自定义选项
 type CopyOpt struct {
-	SetFunc func(toVal, fromVal reflect.Value)
-	Tag     string
+	CopyRule CopyRule
+	Tag      string
 }
 
-// Copy 扩展github.com/jinzhu/copier.Copy()函数，
-// 不加标签时和原函数功能相同，
-// 使用标签(默认使用copy,可自定义，opt.Tag)指定另一个结构体的字段名，使不同名称或者不同类型的字段相关联使字段相关联。
-// 可以自定义拷贝规则(opt.SetFunc)，默认拷贝函数支持类型转换,包括：
-// 1.字符串和数字类型相互转换
-// 2.time.Time和字符串或者数字相互转换
-// example:
-// type To struct {
-// 	A int `copy:"B"`
-// 	T time.Time
-// }
-// type From struct {
-// 	B  string
-// 	Tt string `copy:"T"`
-// }
-// 调用Copy函数时，字段A,B相关联，T能转成字符串赋值给Tt
+// Copy 扩展github.com/jinzhu/copier.Copy函数
 func Copy(toValue, fromValue interface{}, opt ...CopyOpt) (err error) {
 	var (
-		isSlice bool
-		amount  = 1
-		from    = indirect(reflect.ValueOf(fromValue))
-		to      = indirect(reflect.ValueOf(toValue))
-		tag     = "copy"
-		setFunc = setFunc
+		isSlice  bool
+		amount   = 1
+		tag      = "copy"
+		copyRule CopyRule
+		from     = indirect(reflect.ValueOf(fromValue))
+		to       = indirect(reflect.ValueOf(toValue))
 	)
 
 	if len(opt) > 0 {
 		if opt[0].Tag != "" {
 			tag = opt[0].Tag
 		}
-		if opt[0].SetFunc != nil {
-			setFunc = opt[0].SetFunc
+		if opt[0].CopyRule != nil {
+			copyRule = opt[0].CopyRule
 		}
 	}
 
@@ -162,14 +155,14 @@ func Copy(toValue, fromValue interface{}, opt ...CopyOpt) (err error) {
 		for _, field := range fromTaggedFields {
 			if fromField := source.FieldByName(field.Name); fromField.IsValid() {
 				if toField := dest.FieldByName(field.Tag.Get(tag)); toField.IsValid() && toField.CanSet() {
-					setFunc(toField, fromField)
+					setField(toField, fromField, field.Name, copyRule)
 				}
 			}
 		}
 		for _, field := range toTaggedFields {
 			if toField := dest.FieldByName(field.Name); toField.IsValid() && toField.CanSet() {
 				if fromField := source.FieldByName(field.Tag.Get(tag)); fromField.IsValid() {
-					setFunc(toField, fromField)
+					setField(toField, fromField, field.Name, copyRule)
 				}
 			}
 		}
@@ -245,9 +238,16 @@ func indirectType(reflectType reflect.Type) reflect.Type {
 	return reflectType
 }
 
-func setFunc(to, from reflect.Value) {
+//setField 默认拷贝规则
+func setField(to, from reflect.Value, field string, copyRule CopyRule) {
 	if !(from.IsValid() && to.IsValid() && to.CanSet()) {
 		return
+	}
+
+	if copyRule != nil {
+		if copyRule(to, from, field) {
+			return
+		}
 	}
 
 	typeTo := to.Type()
